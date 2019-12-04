@@ -1,0 +1,29 @@
+#!/bin/bash
+root_mnt=/system_root
+data_mnt=/system_data
+rootfs_output=$data_mnt/rootfs.img
+rootfs_mnt=/rootfs_mnt
+
+mkdir -p $root_mnt $data_mnt $rootfs_mnt
+mount /dev/sdd3 $root_mnt
+mount /dev/sdd5 $data_mnt
+
+dd if=/dev/zero of=$rootfs_output bs=4096 count=4404736
+mkfs.ext4 $rootfs_output
+mount $rootfs_output $rootfs_mnt
+
+cp -prvf $root_mnt/* $rootfs_mnt/
+awk -i inplace '$1 ~/(^UUID|^\/dev)/ { if ($2 !~ /^\/$/) next; else $1="UUID=f9f21f49-a8d4-5f0e-9746-594869aec34e" } {print}' $rootfs_mnt/etc/fstab
+
+umount $rootfs_mnt
+
+cd $data_mnt
+if type -p pigz &>/dev/null; then
+    tar -I pigz -cf rootfs.img.tar.gz rootfs.img
+else
+    tar -zcf rootfs.img.tar.gz rootfs.img
+fi
+cd -
+umount $root_mnt
+umount $data_mnt
+rm -rf $root_mnt $data_mnt $rootfs_mnt
